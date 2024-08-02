@@ -202,6 +202,8 @@ public:
 	// Compute shader constructor
 	Shader(const char* computePath)
 	{
+
+		// There is a bug here!
 		std::string shaderCode;
 		std::ifstream shaderFile;
 
@@ -240,7 +242,13 @@ public:
 		ID = glCreateProgram();
 		glAttachShader(ID, compute);
 		glLinkProgram(ID);
-		checkCompileErrors(ID, "COMPUTE_PROGRAM");
+		checkCompileErrors(ID, "PROGRAM");
+		
+		int gl_error = glGetError();
+		if (gl_error != 0) {
+			printf("ERROR::SHADER ID:%d | glGetError() returned %d\n", ID, gl_error);
+		}
+
 		// delete the shader as they're linked into our program now and no longer necessary
 		glDeleteShader(compute);
 	}
