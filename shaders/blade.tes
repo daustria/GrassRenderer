@@ -59,6 +59,4 @@ void main()
 
     gl_Position = projection * view * vec4(position, 1.0f);   
     tes_position = vec4(position, 1.5f * abs(sin(shapeConstant * tc_v1.w)));
-
 }
-	

@@ -25,10 +25,18 @@ uniform vec4 wind_data;
 // C++ code in scenemanager.cc
 layout(binding = 4, rgba32f) uniform image2D pressure_map;
 
+uniform mat4 model;
+uniform mat4 model_inverse;
+uniform mat3 model_inverse_transpose;
+
+// Heightmap stuff
+uniform sampler2D heightMap;
+uniform bool useHeightMap;
+uniform vec4 heightMapBounds; //xMin zMin xLength zLength
+
 void main()
 {
-
-	//TODO : Why is my blade of grass angled?
+	
 	uint id = gl_GlobalInvocationID.x; // for grass blade
 
 	if (id >= amount_blades) {
@@ -42,8 +50,8 @@ void main()
 	float bend_fac = bup[id].w;
 	float mdt = min(1.0f, dt);
 
-	vec3 ground_pos = p[id].xyz;
-	// For now assume no model matrix is applied. This needs to change late
+	vec3 ground_pos = (model * vec4(p[id].xyz, 1.0f)).xyz;
+	// For now assume no model matrix is applied. This may need to change later.
 
 	vec3 blade_up = bup[id].xyz;
 	float sd = sin(dir);
@@ -52,17 +60,22 @@ void main()
 	vec3 blade_dir = normalize(cross(blade_up, tmp));
 	vec3 blade_front = normalize(cross(blade_up, blade_dir));
 
+	blade_up = normalize(model_inverse_transpose * blade_up);
+	blade_dir = normalize(model_inverse_transpose * blade_dir);
+	blade_front = normalize(model_inverse_transpose * blade_front);		
+
+	float map_height = 0.0f;
+	
 	vec3 idle_v2 = ground_pos + blade_up * height;
 
 	// Read pressure map			
 	ivec2 pressureMapLookup = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
 	vec4 old_pressure = imageLoad(pressure_map, pressureMapLookup);
-		
-
+	
 	// Apply old pressure	
 	vec3 v2 = idle_v2 + old_pressure.xyz;
 	vec3 ground_pos_v2 = v2 - ground_pos;
-
+	
 	// Gravity calculation.
 	// a basic version with only environmental gravity, and gravity is only facing downwards.
 	const float h = height;
@@ -71,19 +84,20 @@ void main()
 
 	// Wind computation.
 	vec3 w = vec3(0.0f, 0.0f, 0.0f); 
+	
 	float windage_height = abs(dot(ground_pos_v2, blade_up)) * inv_height; // f_r(h) in the paper
 	float windage_dir = 1.0f - abs(dot(normalize(wind_data.xyz), normalize(ground_pos_v2))); // f_d(h) in the paper 
 	float wind_alignment = windage_dir * windage_height; // Theta in the paper . 
-	w = wind_data.xyz * windage_dir * windage_height * wind_data.w * mdt * 0.1f * (id % 3 + 1);
+	w = wind_data.xyz * windage_dir * windage_height * wind_data.w * mdt * 0.1f * (id % 10 + 1);
 
 	float collision_force = 0.7f; // Should actually 'die' down 
 	// Recovery force computation
 	vec3 stiffness = (idle_v2 - v2) * 0.5f * max(1 - collision_force, 0.1f) * mdt;
 
-	// Apply the forces 		
-	/*v2 += stiffness;*/
-	/*v2 += grav + stiffness;*/
-	/*v2 += w + grav + stiffness;*/
+	//// Apply the forces 		
+	///*v2 += stiffness;*/
+	///*v2 += grav + stiffness;*/
+	///*v2 += w + grav + stiffness;*/
 	v2 += w + stiffness;
 	ground_pos_v2 = v2 - ground_pos;
 
@@ -91,10 +105,12 @@ void main()
 	v2 += blade_up * -min(dot(blade_up, ground_pos_v2), 0.0f);
 
 	// Compute v1 now. Go over how this is computed.
+	
 	float l_proj = length(ground_pos_v2 - dot(ground_pos_v2, blade_up) * blade_up);
 	float v2ratio = l_proj * inv_height;
-	float fac = max(1.0f - v2ratio, 0.05f * max(v2ratio, 1.0f));
+	float fac = max(1.0f - v2ratio, max(v2ratio, 1.0f));
 	vec3 v1 = ground_pos + blade_up * height * fac;
+	// v1 = ground_pos + blade_up * height;
 
 	// Correct the grass length, sometimes it gets longer for some reason
 	vec3 v01 = v1 - ground_pos;
@@ -112,10 +128,18 @@ void main()
 	v1 = ground_pos + v01;
 	v2 = v1 + v12;
 
+	// This is what happens if we do nothing to v1 and v2.
+	//v2 = bv2[id].xyz;
+	//v1 = bv1[id].xyz;
+
 	//Save v1 and v2 to buffers and update pressure map
 	vec3 pressure = v2 - idle_v2;	
-	bv1[id].xyz = v1.xyz;
-	bv2[id].xyz = v2.xyz;
 
-	 imageStore(pressure_map, pressureMapLookup, vec4(pressure, 1.0f));
+	bv1[id].xyz = (model_inverse * vec4(v1 - blade_up * map_height, 1.0f)).xyz;
+	bv2[id].xyz = (model_inverse * vec4(v2 - blade_up * map_height, 1.0f)).xyz;
+
+	//bv1[id].xyz = v1.xyz;
+	//bv2[id].xyz = v2.xyz;
+
+	imageStore(pressure_map, pressureMapLookup, vec4(pressure, 1.0f));
 }

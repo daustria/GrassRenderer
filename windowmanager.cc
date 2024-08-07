@@ -134,7 +134,6 @@ void WindowManager::key_callback(GLFWwindow* window, int key, int scancode, int 
 	{
 		/*print_debug_statements();*/
 	}
-
 }
 
 void WindowManager::register_callbacks()

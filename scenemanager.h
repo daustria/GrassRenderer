@@ -17,11 +17,9 @@ public:
 	// Drawing stuff
 	virtual void app_logic(float delta_time) override;
 	virtual void draw() override;
-	virtual void print_debug_statements(float delta_time = 0.0f) override;	
 
 private:
-	// Actual objects for whatever project or tutorial we are doing. This will change depending on
-	// whatever we are doing.
+
 	void init_grass();
 	void init_terrain();	
 
@@ -44,6 +42,8 @@ private:
 		int n_channels;
 		std::string heightmap_file = "iceland_heightmap.png";
 		Shader* shader = nullptr;
+
+		glm::vec4 heightmap_bounds; // xMin, zMin, xLength, zLength
 	};
 
 	Terrain* terrain;

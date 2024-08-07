@@ -23,7 +23,6 @@ void main()
 ;
 	colour *= tes_uv.y + 0.5f; //pseudo AO
 
-
 	vec3 normal = tes_normal;
 	vec3 viewRay = cam_pos - tes_position.xyz;
 
@@ -48,5 +47,4 @@ void main()
 
 	FragColor = vec4(aCol + dCol + sCol, 1.0f);
 	// FragColor = vec4(sCol, 1.0f);
-
 }
