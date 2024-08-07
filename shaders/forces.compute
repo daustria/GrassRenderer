@@ -1,4 +1,5 @@
 #version 430 core
+
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430, binding = 0) buffer grassPos {
@@ -35,9 +36,8 @@ uniform bool useHeightMap;
 uniform vec4 heightMapBounds; //xMin zMin xLength zLength
 
 void main()
-{
-	
-	uint id = gl_GlobalInvocationID.x; // for grass blade
+{	
+	uint id = gl_GlobalInvocationID.x; // Corresponds to the grass blade we are on.
 
 	if (id >= amount_blades) {
 		return;
@@ -79,26 +79,28 @@ void main()
 	// Gravity calculation.
 	// a basic version with only environmental gravity, and gravity is only facing downwards.
 	const float h = height;
-	vec4 gravity_vec = vec4(0.0f, -1.0f, 0.0f, 0.98f);
-	vec3 grav = normalize(gravity_vec.xyz) * gravity_vec.w * h * mdt;
+	vec4 gravity_vec = vec4(0.0f, -1.0f, 0.0f, 0.0098f);
+	vec3 grav = normalize(gravity_vec.xyz) * gravity_vec.w; // Multiply by the mass of the grass blade?	
+	float sign = step(-0.01f, dot(normalize(grav), blade_front)) * 2.0f - 1.0f;
+	grav += sign * blade_front * h * gravity_vec.w * 0.2f;
+	grav = grav * h * mdt * bend_fac;
 
-	// Wind computation.
-	vec3 w = vec3(0.0f, 0.0f, 0.0f); 
-	
+	// Wind computation.		
 	float windage_height = abs(dot(ground_pos_v2, blade_up)) * inv_height; // f_r(h) in the paper
-	float windage_dir = 1.0f - abs(dot(normalize(wind_data.xyz), normalize(ground_pos_v2))); // f_d(h) in the paper 
-	float wind_alignment = windage_dir * windage_height; // Theta in the paper . 
-	w = wind_data.xyz * windage_dir * windage_height * wind_data.w * mdt * 0.1f * (id % 10 + 1);
+	float windage_dir = 1.0f - abs(dot(normalize(wind_data.xyz), normalize(ground_pos_v2))); // f_d(h) in the paper	
+	float wind_alignment = windage_dir * windage_height; // Theta in the paper . 	
+	// Vary the wind strength 'randomly' based on the grass ID.
+	vec3 w = wind_data.xyz * windage_dir * windage_height * wind_data.w * mdt * 0.1f * (id % 10 + 1); 
+	
+	// Not worrying about collisions with the grass for now.
+	float collision_force = 0.0f;
 
-	float collision_force = 0.7f; // Should actually 'die' down 
 	// Recovery force computation
-	vec3 stiffness = (idle_v2 - v2) * 0.5f * max(1 - collision_force, 0.1f) * mdt;
+	vec3 stiffness = (idle_v2 - v2) * (1.0f - bend_fac * 0.25f) * max(1 - collision_force, 0.1f) * mdt;
 
 	//// Apply the forces 		
-	///*v2 += stiffness;*/
-	///*v2 += grav + stiffness;*/
-	///*v2 += w + grav + stiffness;*/
-	v2 += w + stiffness;
+	v2 += w + grav + stiffness;
+
 	ground_pos_v2 = v2 - ground_pos;
 
 	// Ensure valid v2, check why this makes any sense later in the paper.

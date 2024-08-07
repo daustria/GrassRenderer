@@ -57,7 +57,7 @@ void SceneManager::init_grass()
 		
 		// position /= 20.0f; // Put the blades closer together. Maybe I cans put a density sort of factor...
 		up_dir = glm::vec3(0, 1.0f, 0);
-		blade = Blade(position, up_dir, sgn1*PI + sgn1*sgn2*RANDOM_OFFSET, 0.5f, 0.1f);
+		blade = Blade(position, up_dir, PI/2 + sgn1*sgn2*RANDOM_OFFSET*PI/2, 0.5f, 0.1f);
 
 				
 		blades.push_back(blade);
@@ -305,7 +305,7 @@ void SceneManager::app_logic(float delta_time)
 		acc = 0;
 	}
 
-	glm::vec4 wind_data(1.0f, 0.0f, -0.8f, cos(acc) * 0.1f); // W component is wind strength	
+	glm::vec4 wind_data(1.0f, 0.0f, -0.8f, (sin(acc) + cos(acc)) * 0.1f); // W component is wind strength	
 
 	// Set compute uniforms
 	compute_shader->setVec4("wind_data", wind_data);
