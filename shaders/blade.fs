@@ -1,10 +1,5 @@
 #version 430 core
 
-uniform float ambient;
-uniform float diffuse;
-uniform float specular;
-uniform float specular_hardness;
-
 uniform vec3 light_dir;
 uniform vec3 light_colour;
 uniform vec3 cam_pos;
@@ -18,6 +13,11 @@ out vec4 FragColor;
 
 void main()
 {
+	const float ambient = 1.0f;
+	const float diffuse = 0.6f; 
+	const float specular = 1.0f;
+	const float specular_hardness = 600.0f;
+
 	vec4 colour = vec4(1.0f, 0.8f, 0.82f, 1.0f);
 	// vec4 colour = vec4(1.0f, 0.8f, 0, 1.0f);
 ;

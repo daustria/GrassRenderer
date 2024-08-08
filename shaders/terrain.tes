@@ -12,6 +12,9 @@ in vec2 TextureCoord[];
 
 // send to Fragment Shader for coloring
 out float Height;
+out vec3 tes_frag_pos;
+out vec3 tes_normal;
+out vec2 tes_uv;
 
 void main()
 {
@@ -33,7 +36,7 @@ void main()
 
     // lookup texel at patch coordinate for height and scale + shift as desired
     // Height = texture(heightMap, texCoord).y * 64.0 - 16.0;
-    Height = texture(heightMap, texCoord).y * 32.0f;
+    Height = texture(heightMap, texCoord).y * 32.0f + 0.0f;
 
     // ----------------------------------------------------------------------
     // retrieve control point position coordinates
@@ -58,4 +61,8 @@ void main()
     // ----------------------------------------------------------------------
     // output patch point position in clip space
     gl_Position = projection * view * model * p;
+
+    tes_frag_pos = (model * vec4(p.xyz, 1.0)).xyz;
+    tes_normal = normal.xyz;
+    tes_uv = texCoord;
 }

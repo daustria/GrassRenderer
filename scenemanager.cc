@@ -2,7 +2,7 @@
 #include "stb_image.h"
 #include <glm/gtc/matrix_inverse.hpp>
 
-#define NUM_BLADES 3000
+#define NUM_BLADES 50000
 #define POSITION_LOCATION 0
 #define V1_LOCATION 1
 #define V2_LOCATION 2
@@ -22,7 +22,10 @@ void SceneManager::initialize()
 	grass_shader = new Shader("shaders/blade.vs", "shaders/blade.fs", nullptr, "shaders/blade.tcs", "shaders/blade.tes");
 
 	terrain = new Terrain();
+	terrain->heightmap_file = "iceland_heightmap.png";
+	terrain->rez = 30;
 	terrain->shader = new Shader("shaders/terrain.vs", "shaders/terrain.fs", nullptr, "shaders/terrain.tcs", "shaders/terrain.tes");	
+
 	init_grass();
 	init_terrain();	
 }
@@ -33,8 +36,8 @@ void SceneManager::init_grass()
 	std::vector<Blade> blades;
 	blades.reserve(NUM_BLADES);
 
-	const float X = 30.0f;
-	const float Z = 30.0f;
+	const float X = 100.0f;
+	const float Z = 100.0f;
 
 	for (int i = 0; i < NUM_BLADES; ++i)
 	{
@@ -187,7 +190,7 @@ void SceneManager::init_terrain()
 	unsigned int rez = terrain->rez;
 	
 	std::vector<float> vertices;
-	vertices.reserve(rez * rez * rez);
+	vertices.reserve(5 * rez * rez);
 
 	float width(terrain->width);
 	float height(terrain->height);
@@ -256,20 +259,11 @@ void SceneManager::app_logic(float delta_time)
 	const float far = 100.0f;
 	glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)scr_width / (float)scr_height, near, far);
 
-	const float ambient = 1.0f;
-	const float diffuse = 0.6f;
-	const float specular = 1.0f;
-	const float specular_hardness = 600.0f;
-
 	const glm::vec3 light_dir(0.7, -1.0f, 0.2f);
 	const glm::vec3 light_colour(1.0f, 1.0f, 1.0f);
 
 	grass_shader->use();
 	grass_shader->setInt("heightMap", 1);
-	grass_shader->setFloat("ambient", ambient);
-	grass_shader->setFloat("diffuse", diffuse);
-	grass_shader->setFloat("specular", specular);
-	grass_shader->setFloat("specular_hardness", specular_hardness);
 
 	grass_shader->setVec3("light_dir", light_dir);
 	grass_shader->setVec3("light_colour", light_colour);
@@ -290,6 +284,10 @@ void SceneManager::app_logic(float delta_time)
 	
 	if (terrain) {
 		terrain->shader->use();
+		terrain->shader->setVec3("light_dir", light_dir);
+		terrain->shader->setVec3("light_colour", light_colour);
+		terrain->shader->setVec3("cam_pos", camera->Position);
+
 		terrain->shader->setInt("heightMap", 1);
 		terrain->shader->setMat4("projection", projection);
 		terrain->shader->setMat4("view", view);
@@ -320,7 +318,6 @@ void SceneManager::app_logic(float delta_time)
 	compute_shader->setMat3("model_inverse_transpose", model_inverse_transpose);
 	compute_shader->setInt("amount_blades", NUM_BLADES);
 	compute_shader->setFloat("dt", 1.0f /* delta_time */);
-
 }
 
 void SceneManager::draw()

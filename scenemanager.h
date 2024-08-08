@@ -36,11 +36,11 @@ private:
 		unsigned int vao = 0;
 		unsigned int vbo = 0;
 		unsigned int texture = 0;
-		unsigned int rez = 20;
-		int width;
-		int height;
-		int n_channels;
-		std::string heightmap_file = "iceland_heightmap.png";
+		unsigned int rez = 30;
+		int width = 0;
+		int height = 0;
+		int n_channels = 0;
+		std::string heightmap_file;
 		Shader* shader = nullptr;
 
 		glm::vec4 heightmap_bounds; // xMin, zMin, xLength, zLength
