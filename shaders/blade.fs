@@ -1,5 +1,6 @@
 #version 430 core
 
+uniform sampler2D diffuse_texture;
 uniform vec3 light_dir;
 uniform vec3 light_colour;
 uniform vec3 cam_pos;
@@ -18,10 +19,11 @@ void main()
 	const float specular = 1.0f;
 	const float specular_hardness = 600.0f;
 
-	vec4 colour = vec4(1.0f, 0.8f, 0.82f, 1.0f);
+	vec4 colour = texture(diffuse_texture, tes_uv);
+
+	// vec4 colour = vec4(1.0f, 0.8f, 0.82f, 1.0f); // pink grass 	
 	// vec4 colour = vec4(1.0f, 0.8f, 0, 1.0f);
-;
-	colour *= tes_uv.y + 0.5f; //pseudo AO
+	// colour *= tes_uv.y + 0.5f; //pseudo AO
 
 	vec3 normal = tes_normal;
 	vec3 viewRay = cam_pos - tes_position.xyz;

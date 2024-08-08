@@ -2,6 +2,9 @@
 #include "stb_image.h"
 #include <glm/gtc/matrix_inverse.hpp>
 
+// TODO: Change things so that, in the compute shader, we use X and Y workers to process each blade of grass.
+// Not just X workers. This will allow us to process more grass blades.
+
 #define NUM_BLADES 50000
 #define POSITION_LOCATION 0
 #define V1_LOCATION 1
@@ -10,7 +13,18 @@
 #define TERRAIN_POS_LOCATION 5
 #define TERRAIN_TEX_LOCATION 6
 
+#define TEXTURE_GRASS_FORCES 0
+#define TEXTURE_GRASS_DIFFUSE 1
+#define TEXTURE_FLOOR_HEIGHTMAP 2
+#define TEXTURE_FLOOR_ALBEDO 3
+#define TEXTURE_FLOOR_METALLIC 4
+#define TEXTURE_FLOOR_ROUGHNESS 5
+#define TEXTURE_FLOOR_AO 6
+#define TEXTURE_FLOOR_NORMAL 7
+
 #define CHECK_GL_ERROR printf("line:%d, error:%d\n", __LINE__, glGetError())
+
+unsigned int load_texture(char const* path, unsigned int& textureID, int& width, int& height);
 
 void SceneManager::initialize()
 {
@@ -23,11 +37,11 @@ void SceneManager::initialize()
 
 	terrain = new Terrain();
 	terrain->heightmap_file = "iceland_heightmap.png";
-	terrain->rez = 30;
+	terrain->rez = 40;
 	terrain->shader = new Shader("shaders/terrain.vs", "shaders/terrain.fs", nullptr, "shaders/terrain.tcs", "shaders/terrain.tes");	
 
-	init_grass();
 	init_terrain();	
+	init_grass();
 }
 
 void SceneManager::init_grass()
@@ -79,8 +93,9 @@ void SceneManager::init_grass()
 	// Generate the texture and bind it.
 	CHECK_GL_ERROR;
 	glGenTextures(1, &pressure_map);
-	glActiveTexture(GL_TEXTURE0);
+	glActiveTexture(GL_TEXTURE0 + TEXTURE_GRASS_FORCES);
 	glBindTexture(GL_TEXTURE_2D, pressure_map);
+	CHECK_GL_ERROR;
 	
 	// Set how texture repeats/scales
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -88,13 +103,24 @@ void SceneManager::init_grass()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
+	// This errors when NUM_BLADES is too big. Our pressure_map right now is a texture with a y dimension of 1,
+	// and a x dimension of NUM_BLADES. Ideally we want our texture to have x and y dimensions.
+	
+	// Change when we modify pressure_map to be a texture with x and y dimensions, not just
+	// a long 1-dimensional texture.
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, NUM_BLADES, 1, 0, GL_RGBA, GL_FLOAT, nullptr);
 
 	// Bind our texture so that we can access it from the compute shader.
 	CHECK_GL_ERROR;
 	glBindImageTexture(4, pressure_map, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 	CHECK_GL_ERROR;
-	
+
+	// Load grass diffuse texture	
+	int tmp_width = 0;
+	int tmp_height = 0;
+	load_texture("resources/grass_diffuse.png", grass_texture, tmp_width, tmp_height);
+
+	// Setup vertex buffers
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, POSITION_LOCATION, grass_vbo[POSITION_LOCATION]);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, V1_LOCATION, grass_vbo[V1_LOCATION]);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, V2_LOCATION, grass_vbo[V2_LOCATION]);
@@ -155,42 +181,17 @@ void SceneManager::init_grass()
 
 void SceneManager::init_terrain()
 {	
-	glGenTextures(1, &terrain->texture);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, terrain->texture);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	// set texture filtering parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// Load and create the texture
-	unsigned char* data = stbi_load(terrain->heightmap_file.c_str(), &terrain->width, &terrain->height, &terrain->n_channels, 0);
+	// Load and create the texture	
+	load_texture(terrain->heightmap_file.c_str(), terrain->heightmap_texture, terrain->width, terrain->height);
 	
+	terrain->heightmap_bounds = glm::vec4(-terrain->width / 2, -terrain->height / 2, terrain->width, terrain->height);
+	CHECK_GL_ERROR;
 
-	if (data) 
-	{
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, terrain->width, terrain->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-
-		// Need to use the shader before setting the variable..
-		CHECK_GL_ERROR;
-		printf("Loaded heightmap of size %d x %d\n", terrain->height, terrain->width);
-		terrain->heightmap_bounds = glm::vec4(-terrain->width / 2, -terrain->height / 2, terrain->width, terrain->height);
-	}
-	else 
-	{
-		printf("Failed to load texture");
-	}
-
-	stbi_image_free(data);
-
-	// Set up vertex data
+	// Set up vertex data	
 	unsigned int rez = terrain->rez;
 	
 	std::vector<float> vertices;
-	vertices.reserve(5 * rez * rez);
+	vertices.reserve(20 * rez * rez);
 
 	float width(terrain->width);
 	float height(terrain->height);
@@ -242,10 +243,35 @@ void SceneManager::init_terrain()
 	glPatchParameteri(GL_PATCH_VERTICES, 4);
 	CHECK_GL_ERROR;
 
+	// Now set the floor textures.
+	// Dummy variable, I don't need to keep the width and height of these textures.
+	int tmp_width = 0;
+	int tmp_height = 0;	
+	load_texture("resources/floor_albedo.png", terrain->albedo_texture, tmp_width, tmp_height);
+	load_texture("resources/floor_metal.png", terrain->metal_texture, tmp_width, tmp_height);
+	load_texture("resources/floor_ao.png", terrain->ao_texture, tmp_width, tmp_height);
+	load_texture("resources/floor_roughness.png", terrain->roughness_texutre, tmp_width, tmp_height);
+	load_texture("resources/floor_normal.png", terrain->normal_texture, tmp_width, tmp_height);
 }
 
 void SceneManager::app_logic(float delta_time)
 {
+	// Activate textures
+	glActiveTexture(GL_TEXTURE0 + TEXTURE_GRASS_DIFFUSE);
+	glBindTexture(GL_TEXTURE_2D, grass_texture);
+	glActiveTexture(GL_TEXTURE0 + TEXTURE_FLOOR_HEIGHTMAP);
+	glBindTexture(GL_TEXTURE_2D, terrain->heightmap_texture);
+	glActiveTexture(GL_TEXTURE0 + TEXTURE_FLOOR_ALBEDO);
+	glBindTexture(GL_TEXTURE_2D, terrain->albedo_texture);
+	glActiveTexture(GL_TEXTURE0 + TEXTURE_FLOOR_AO);
+	glBindTexture(GL_TEXTURE_2D, terrain->ao_texture);
+	glActiveTexture(GL_TEXTURE0 + TEXTURE_FLOOR_METALLIC);
+	glBindTexture(GL_TEXTURE_2D, terrain->metal_texture);
+	glActiveTexture(GL_TEXTURE0 + TEXTURE_FLOOR_ROUGHNESS);
+	glBindTexture(GL_TEXTURE_2D, terrain->roughness_texutre);
+	glActiveTexture(GL_TEXTURE0 + TEXTURE_FLOOR_NORMAL);
+	glBindTexture(GL_TEXTURE_2D, terrain->normal_texture);
+
 	// Prep data for uniforms	
 	glm::mat4 model(1.0f);
 	glm::mat4 model_inverse = inverse(model);
@@ -263,7 +289,7 @@ void SceneManager::app_logic(float delta_time)
 	const glm::vec3 light_colour(1.0f, 1.0f, 1.0f);
 
 	grass_shader->use();
-	grass_shader->setInt("heightMap", 1);
+	grass_shader->setInt("heightMap", TEXTURE_FLOOR_HEIGHTMAP);
 
 	grass_shader->setVec3("light_dir", light_dir);
 	grass_shader->setVec3("light_colour", light_colour);
@@ -275,23 +301,31 @@ void SceneManager::app_logic(float delta_time)
 	grass_shader->setMat4("projection", projection);
 
 	grass_shader->setBool("useHeightMap", terrain ? 1 : 0);
+	grass_shader->setInt("diffuse_texture", TEXTURE_GRASS_DIFFUSE);
 
 	// Floor shader
 	if (terrain) {
 		grass_shader->setVec4("heightMapBounds", terrain->heightmap_bounds);
-		grass_shader->setInt("heightMap", 1);
+		grass_shader->setInt("heightMap", TEXTURE_FLOOR_HEIGHTMAP);
 	}	
 	
-	if (terrain) {
+	if (terrain) 
+	{
 		terrain->shader->use();
 		terrain->shader->setVec3("light_dir", light_dir);
 		terrain->shader->setVec3("light_colour", light_colour);
 		terrain->shader->setVec3("cam_pos", camera->Position);
 
-		terrain->shader->setInt("heightMap", 1);
 		terrain->shader->setMat4("projection", projection);
 		terrain->shader->setMat4("view", view);
 		terrain->shader->setMat4("model", model);
+
+		terrain->shader->setInt("heightMap", TEXTURE_FLOOR_HEIGHTMAP);
+		terrain->shader->setInt("albedo_map", TEXTURE_FLOOR_ALBEDO);
+		terrain->shader->setInt("metallic_map", TEXTURE_FLOOR_METALLIC);
+		terrain->shader->setInt("roughness_map", TEXTURE_FLOOR_ROUGHNESS);
+		terrain->shader->setInt("ao_map", TEXTURE_FLOOR_AO);
+		terrain->shader->setInt("normal_map", TEXTURE_FLOOR_NORMAL);		
 	}
 
 	// Compute shader loop
@@ -311,7 +345,7 @@ void SceneManager::app_logic(float delta_time)
 	if (terrain) {
 		compute_shader->setVec4("heightMapBounds", terrain->heightmap_bounds);
 	}
-	compute_shader->setInt("heightMap", 1);
+	compute_shader->setInt("heightMap", TEXTURE_FLOOR_HEIGHTMAP);
 
 	compute_shader->setMat4("model", model);
 	compute_shader->setMat4("model_inverse", model_inverse);
@@ -343,4 +377,40 @@ void SceneManager::draw()
 	glBindVertexArray(terrain->vao);
 	glDrawArrays(GL_PATCHES, 0, 4 * terrain->rez * terrain->rez);
 	glBindVertexArray(0);
+}
+
+unsigned int load_texture(char const* path, unsigned int& textureID, int& width, int& height)
+{
+	glGenTextures(1, &textureID);
+
+	int nrComponents;
+	unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
+	if (data)
+	{
+		GLenum format = 0;
+		if (nrComponents == 1)
+			format = GL_RED;
+		else if (nrComponents == 3)
+			format = GL_RGB;
+		else if (nrComponents == 4)
+			format = GL_RGBA;
+
+		glBindTexture(GL_TEXTURE_2D, textureID);
+		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		stbi_image_free(data);
+	}
+	else
+	{
+		std::cout << "Texture failed to load at path: " << path << std::endl;
+		stbi_image_free(data);
+	}
+
+	return textureID;
 }

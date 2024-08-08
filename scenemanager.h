@@ -24,6 +24,7 @@ private:
 	void init_terrain();	
 
 	unsigned int grass_vao = 0;
+	unsigned int grass_texture = 0;
 	unsigned int n_grass_buffers = 4;
 	unsigned int grass_vbo[4];
 	Shader* grass_shader = nullptr;
@@ -35,7 +36,12 @@ private:
 	{
 		unsigned int vao = 0;
 		unsigned int vbo = 0;
-		unsigned int texture = 0;
+		unsigned int heightmap_texture = 0;
+		unsigned int albedo_texture = 0;
+		unsigned int metal_texture = 0;
+		unsigned int ao_texture = 0;
+		unsigned int roughness_texutre = 0;
+		unsigned int normal_texture = 0;
 		unsigned int rez = 30;
 		int width = 0;
 		int height = 0;

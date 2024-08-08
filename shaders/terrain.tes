@@ -63,6 +63,6 @@ void main()
     gl_Position = projection * view * model * p;
 
     tes_frag_pos = (model * vec4(p.xyz, 1.0)).xyz;
-    tes_normal = normal.xyz;
-    tes_uv = texCoord;
+    tes_normal = normal.xyz; // Shouldn't this be modified by the model transpose inverse ? Where normal is in world space...
+    tes_uv = vec2(u, v);
 }
