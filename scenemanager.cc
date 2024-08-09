@@ -4,7 +4,7 @@
 #include <cmath>
 
 // Maybe make some sort of struct in the header file to keep track of these..
-#define NUM_BLADES 1000000
+#define NUM_BLADES 2000000
 
 // Shader Vertex attribute location
 #define POSITION_LOCATION 0
@@ -38,8 +38,8 @@ void SceneManager::initialize()
 	grass_shader = new Shader("shaders/blade.vs", "shaders/blade.fs", nullptr, "shaders/blade.tcs", "shaders/blade.tes");
 
 	terrain = new Terrain();
-	terrain->heightmap_file = "iceland_heightmap.png";
-	terrain->rez = 40;
+	terrain->heightmap_file = "resources/iceland_heightmap.png";
+	terrain->rez = 60;
 	terrain->shader = new Shader("shaders/terrain.vs", "shaders/terrain.fs", nullptr, "shaders/terrain.tcs", "shaders/terrain.tes");	
 
 	// Set worker dimensions for grass compute shader
@@ -65,9 +65,6 @@ void SceneManager::init_grass()
 		glm::vec3 position;
 		glm::vec3 up_dir;		
 
-		const float h = 1.0f;
-		const float w = 0.3f;
-
 		float x_pos = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / X));
 		float z_pos = static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / Z));
 		int rand = std::rand();
@@ -80,8 +77,7 @@ void SceneManager::init_grass()
 		
 		// position /= 20.0f; // Put the blades closer together. Maybe I cans put a density sort of factor...
 		up_dir = glm::vec3(0, 1.0f, 0);
-		blade = Blade(position, up_dir, PI/2 + sgn1*sgn2*RANDOM_OFFSET*PI/2, 0.5f, 0.1f);
-
+		blade = Blade(position, up_dir, PI/2 + sgn1*sgn2*RANDOM_OFFSET*PI/2, std::max(0.5f, RANDOM_OFFSET + 0.2f), std::min(0.1f, RANDOM_OFFSET/3.0f));
 				
 		blades.push_back(blade);
 	}	
@@ -121,57 +117,42 @@ void SceneManager::init_grass()
 	int tmp_height = 0;
 	load_texture("resources/grass_diffuse.png", grass_texture, tmp_width, tmp_height);
 
-	// Setup vertex buffers
+	// Setup vertex buffers and attributes
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, POSITION_LOCATION, grass_vbo[POSITION_LOCATION]);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, V1_LOCATION, grass_vbo[V1_LOCATION]);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, V2_LOCATION, grass_vbo[V2_LOCATION]);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, UP_LOCATION, grass_vbo[UP_LOCATION]);	
 	
 	// position attribute
-	std::vector<glm::vec4> v0_arr(NUM_BLADES);
-	for (int i = 0; i < NUM_BLADES; ++i)
-	{
-		v0_arr[i] = blades[i].v0;		
-	}
+	std::vector<glm::vec4> vertex_data(NUM_BLADES);	
+	for (int i = 0; i < NUM_BLADES; ++i) vertex_data[i] = blades[i].v0;	
 	
 	glBindBuffer(GL_ARRAY_BUFFER, grass_vbo[0]);
-	glBufferData(GL_ARRAY_BUFFER, NUM_BLADES * sizeof(glm::vec4), v0_arr.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, NUM_BLADES * sizeof(glm::vec4), vertex_data.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(POSITION_LOCATION);
 	glVertexAttribPointer(POSITION_LOCATION, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
 	// v1
-	std::vector<glm::vec4> v1_arr(NUM_BLADES);
-	for (int i = 0; i < NUM_BLADES; ++i)
-	{
-		v1_arr[i] = blades[i].v1;
-	}
+	for (int i = 0; i < NUM_BLADES; ++i) vertex_data[i] = blades[i].v1;	
 
 	glBindBuffer(GL_ARRAY_BUFFER, grass_vbo[1]);
-	glBufferData(GL_ARRAY_BUFFER, NUM_BLADES * sizeof(glm::vec4), v1_arr.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, NUM_BLADES * sizeof(glm::vec4), vertex_data.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(V1_LOCATION);
 	glVertexAttribPointer(V1_LOCATION, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
 	// v2
-	std::vector<glm::vec4> v2_arr(NUM_BLADES);
-	for (int i = 0; i < NUM_BLADES; ++i)
-	{
-		v2_arr[i] = blades[i].v2;
-	}
+	for (int i = 0; i < NUM_BLADES; ++i) vertex_data[i] = blades[i].v2;	
 
 	glBindBuffer(GL_ARRAY_BUFFER, grass_vbo[2]);
-	glBufferData(GL_ARRAY_BUFFER, NUM_BLADES * sizeof(glm::vec4), v2_arr.data(), GL_STATIC_DRAW);	
+	glBufferData(GL_ARRAY_BUFFER, NUM_BLADES * sizeof(glm::vec4), vertex_data.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(V2_LOCATION);
 	glVertexAttribPointer(V2_LOCATION, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
-	// Up
-	std::vector<glm::vec4> up(NUM_BLADES);
-	for (int i = 0; i < NUM_BLADES; ++i)
-	{
-		up[i] = blades[i].up;
-	}
+	// Up	
+	for (int i = 0; i < NUM_BLADES; ++i) vertex_data[i] = blades[i].up;	
 
 	glBindBuffer(GL_ARRAY_BUFFER, grass_vbo[3]);
-	glBufferData(GL_ARRAY_BUFFER, NUM_BLADES * sizeof(glm::vec4), up.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, NUM_BLADES * sizeof(glm::vec4), vertex_data.data(), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(UP_LOCATION);
 	glVertexAttribPointer(UP_LOCATION, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
@@ -248,10 +229,10 @@ void SceneManager::init_terrain()
 	// Dummy variable, I don't need to keep the width and height of these textures.
 	int tmp_width = 0;
 	int tmp_height = 0;	
-	load_texture("resources/floor_albedo.png", terrain->albedo_texture, tmp_width, tmp_height);
+	load_texture("resources/floor_albedo.jpg", terrain->albedo_texture, tmp_width, tmp_height);
 	load_texture("resources/floor_metal.png", terrain->metal_texture, tmp_width, tmp_height);
-	load_texture("resources/floor_ao.png", terrain->ao_texture, tmp_width, tmp_height);
-	load_texture("resources/floor_roughness.png", terrain->roughness_texutre, tmp_width, tmp_height);
+	load_texture("resources/floor_ao.jpg", terrain->ao_texture, tmp_width, tmp_height);
+	load_texture("resources/floor_roughness.jpg", terrain->roughness_texutre, tmp_width, tmp_height);
 	load_texture("resources/floor_normal.png", terrain->normal_texture, tmp_width, tmp_height);
 }
 
@@ -338,7 +319,7 @@ void SceneManager::app_logic(float delta_time)
 		acc = 0;
 	}
 
-	glm::vec4 wind_data(1.0f, 0.0f, -0.8f, (sin(acc) + cos(acc)) * 0.5f); // W component is wind strength	
+	glm::vec4 wind_data(1.0f, 0.0f, -0.8f, acc); // W component is wind strength	
 
 	// Set compute uniforms
 	compute_shader->setInt("amount_blades", NUM_BLADES);

@@ -59,12 +59,18 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     return ggx1 * ggx2;
 }
 
+vec3 gamma_correct(vec3 colour)
+{
+	return vec3(pow(colour.r, 2.2), pow(colour.g, 2.2), pow(colour.b, 2.2));
+}
+
 void main()
 {
-	// Artists make these albedo maps in sRGB space, we need to convert to linear
-	// vec3 albedo = vec3(0.6f, 0.4f, 0.1f);
-	vec3 albedo = texture(albedo_map, tes_uv).rgb;
-	albedo = vec3(pow(albedo.r, 2.2), pow(albedo.g, 2.2), pow(albedo.b, 2.2));
+	// Artists make these albedo maps in sRGB space, we need to convert to linear	
+	vec3 texture_albedo = texture(albedo_map, tes_uv).rgb;		
+	vec3 albedo = gamma_correct(vec3(0.05f, 0.9f, 0.3f)) + 0.5*gamma_correct(texture_albedo);
+	
+	
 	float metallic = texture(metallic_map, tes_uv).r;	
 	float roughness = texture(roughness_map, tes_uv).r;
 	float ao = texture(ao_map, tes_uv).r;	
@@ -103,7 +109,7 @@ void main()
 
 	// This concludes the lighting integral equation computation. 
 	// Now we need an improvised ambient occlusion term ... 
-	vec3 ambient = vec3(0.1) * albedo * ao;
+	vec3 ambient = vec3(0.5) * albedo * ao;
 	vec3 color = ambient + Lo;
 
 	// And convert to sRGB space.

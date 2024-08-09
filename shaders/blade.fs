@@ -20,6 +20,7 @@ void main()
 	const float specular_hardness = 600.0f;
 
 	vec4 colour = texture(diffuse_texture, tes_uv);
+	
 
 	// vec4 colour = vec4(1.0f, 0.8f, 0.82f, 1.0f); // pink grass 	
 	// vec4 colour = vec4(1.0f, 0.8f, 0, 1.0f);

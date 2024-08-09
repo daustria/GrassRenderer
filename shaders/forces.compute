@@ -93,7 +93,10 @@ void main()
 	float windage_dir = 1.0f - abs(dot(normalize(wind_data.xyz), normalize(ground_pos_v2))); // f_d(h) in the paper	
 	float wind_alignment = windage_dir * windage_height; // Theta in the paper . 	
 	// Vary the wind strength 'randomly' based on the grass ID.
-	vec3 w = wind_data.xyz * windage_dir * windage_height * wind_data.w * mdt * 0.1f * (id % 10 + 1); 
+	float w_time = wind_data.w + id % 30;	
+
+	float wind_strength = id % 2 == 1 ? 1.2*sin(w_time) + 0.2*cos(w_time) : 0.2*sin(w_time) + 1.2*cos(w_time) ; 
+	vec3 w = wind_data.xyz * windage_dir * windage_height * wind_strength * mdt * 0.2f* (id % 3 + 1);
 	
 	// Not worrying about collisions with the grass for now.
 	float collision_force = 0.0f;
