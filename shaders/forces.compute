@@ -19,6 +19,8 @@ layout(std430, binding = 3) buffer grassUp {
 };
 
 uniform int amount_blades;
+uniform uvec2 workers;
+
 uniform float dt; 
 uniform vec4 wind_data;
 
@@ -36,8 +38,9 @@ uniform bool useHeightMap;
 uniform vec4 heightMapBounds; //xMin zMin xLength zLength
 
 void main()
-{	
-	uint id = gl_GlobalInvocationID.x; // Corresponds to the grass blade we are on.
+{	// Corresponds to the grass blade we are on.
+	uint id = (gl_GlobalInvocationID.x * workers.x) + (gl_GlobalInvocationID.y % workers.y);
+	// uint id = gl_GlobalInvocationID.x; 
 
 	if (id >= amount_blades) {
 		return;

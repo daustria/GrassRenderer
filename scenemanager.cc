@@ -1,11 +1,12 @@
 #include "scenemanager.h"
 #include "stb_image.h"
 #include <glm/gtc/matrix_inverse.hpp>
+#include <cmath>
 
-// TODO: Change things so that, in the compute shader, we use X and Y workers to process each blade of grass.
-// Not just X workers. This will allow us to process more grass blades.
+// Maybe make some sort of struct in the header file to keep track of these..
+#define NUM_BLADES 1000000
 
-#define NUM_BLADES 50000
+// Shader Vertex attribute location
 #define POSITION_LOCATION 0
 #define V1_LOCATION 1
 #define V2_LOCATION 2
@@ -13,6 +14,7 @@
 #define TERRAIN_POS_LOCATION 5
 #define TERRAIN_TEX_LOCATION 6
 
+// OpenGL Shader Textures
 #define TEXTURE_GRASS_FORCES 0
 #define TEXTURE_GRASS_DIFFUSE 1
 #define TEXTURE_FLOOR_HEIGHTMAP 2
@@ -40,6 +42,10 @@ void SceneManager::initialize()
 	terrain->rez = 40;
 	terrain->shader = new Shader("shaders/terrain.vs", "shaders/terrain.fs", nullptr, "shaders/terrain.tcs", "shaders/terrain.tes");	
 
+	// Set worker dimensions for grass compute shader
+	grass_workers.x = (unsigned int)(sqrt(NUM_BLADES) + 1);
+	grass_workers.y = grass_workers.x - 1;
+
 	init_terrain();	
 	init_grass();
 }
@@ -50,8 +56,8 @@ void SceneManager::init_grass()
 	std::vector<Blade> blades;
 	blades.reserve(NUM_BLADES);
 
-	const float X = 100.0f;
-	const float Z = 100.0f;
+	const float X = terrain->width / 4;
+	const float Z = terrain->height / 4;
 
 	for (int i = 0; i < NUM_BLADES; ++i)
 	{
@@ -102,15 +108,10 @@ void SceneManager::init_grass()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-	// This errors when NUM_BLADES is too big. Our pressure_map right now is a texture with a y dimension of 1,
-	// and a x dimension of NUM_BLADES. Ideally we want our texture to have x and y dimensions.
 	
-	// Change when we modify pressure_map to be a texture with x and y dimensions, not just
-	// a long 1-dimensional texture.
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, NUM_BLADES, 1, 0, GL_RGBA, GL_FLOAT, nullptr);
-
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, grass_workers.x, grass_workers.y, 0, GL_RGBA, GL_FLOAT, nullptr);
 	// Bind our texture so that we can access it from the compute shader.
+
 	CHECK_GL_ERROR;
 	glBindImageTexture(4, pressure_map, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 	CHECK_GL_ERROR;
@@ -301,7 +302,7 @@ void SceneManager::app_logic(float delta_time)
 	grass_shader->setMat4("projection", projection);
 
 	grass_shader->setBool("useHeightMap", terrain ? 1 : 0);
-	grass_shader->setInt("diffuse_texture", TEXTURE_GRASS_DIFFUSE);
+	grass_shader->setInt("diffuse_texture", TEXTURE_GRASS_DIFFUSE);	
 
 	// Floor shader
 	if (terrain) {
@@ -337,14 +338,18 @@ void SceneManager::app_logic(float delta_time)
 		acc = 0;
 	}
 
-	glm::vec4 wind_data(1.0f, 0.0f, -0.8f, (sin(acc) + cos(acc)) * 0.1f); // W component is wind strength	
+	glm::vec4 wind_data(1.0f, 0.0f, -0.8f, (sin(acc) + cos(acc)) * 0.5f); // W component is wind strength	
 
 	// Set compute uniforms
+	compute_shader->setInt("amount_blades", NUM_BLADES);
+	compute_shader->setUVec2("workers", grass_workers);	
+
 	compute_shader->setVec4("wind_data", wind_data);
 	compute_shader->setBool("useHeightMap", terrain ? 1 : 0);
 	if (terrain) {
 		compute_shader->setVec4("heightMapBounds", terrain->heightmap_bounds);
 	}
+	
 	compute_shader->setInt("heightMap", TEXTURE_FLOOR_HEIGHTMAP);
 
 	compute_shader->setMat4("model", model);
@@ -352,13 +357,14 @@ void SceneManager::app_logic(float delta_time)
 	compute_shader->setMat3("model_inverse_transpose", model_inverse_transpose);
 	compute_shader->setInt("amount_blades", NUM_BLADES);
 	compute_shader->setFloat("dt", 1.0f /* delta_time */);
+	
 }
 
 void SceneManager::draw()
 {	
 	compute_shader->use();
 	// Run the workers
-	glDispatchCompute(NUM_BLADES, 1, 1);
+	glDispatchCompute(grass_workers.x, grass_workers.y, 1);
 	// Wait for workers to finish
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 

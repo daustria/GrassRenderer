@@ -28,6 +28,7 @@ private:
 	unsigned int n_grass_buffers = 4;
 	unsigned int grass_vbo[4];
 	Shader* grass_shader = nullptr;
+	glm::uvec2 grass_workers;
 
 	Shader* compute_shader = nullptr;
 	unsigned int pressure_map = 0;

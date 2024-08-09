@@ -271,6 +271,11 @@ public:
 	{
 		glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
 	}
+	// ------------------------------------------------------------------------
+	void setUint(const std::string& name, unsigned int value) const
+	{
+		glUniform1ui(glGetUniformLocation(ID, name.c_str()), value);
+	}
 	unsigned int getInt(const std::string& name) const
 	{
 		GLuint retval = 0;
@@ -281,11 +286,15 @@ public:
 	void setFloat(const std::string& name, float value) const
 	{
 		glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
-	}
+	}	
 	// ------------------------------------------------------------------------
 	void setVec2(const std::string& name, const glm::vec2& v) const
 	{
 		glUniform2f(glGetUniformLocation(ID, name.c_str()), v.x, v.y);
+	}
+	void setUVec2(const std::string& name, const glm::uvec2& v) const
+	{
+		glUniform2ui(glGetUniformLocation(ID, name.c_str()), v.x, v.y);
 	}
 	// ------------------------------------------------------------------------
 	void setVec3(const std::string& name, const glm::vec3 &v) const

@@ -34,7 +34,7 @@ void main()
 		float x_t = (2*pos.x + heightMapBounds.z) / (2*heightMapBounds.z);
 		float z_t = (2*pos.z + heightMapBounds.w) / (2*heightMapBounds.w);
 
-		float height = texture(heightMap, vec2(x_t, z_t)).y * 32.0f;
+		float height = texture(heightMap, vec2(x_t, z_t)).y * 32.0f - 0.1f;
 		
 		pos.xyz += vs_blade_up * height;
 		vs_v1.xyz += vs_blade_up * height;
