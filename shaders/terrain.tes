@@ -1,11 +1,11 @@
 #version 430 core
 
-layout (quads, fractional_odd_spacing, ccw) in;
+layout(quads, fractional_odd_spacing, ccw) in;
 
-uniform sampler2D heightMap;  // the texture corresponding to our height map
-uniform mat4 model;           // the model matrix
-uniform mat4 view;            // the view matrix
-uniform mat4 projection;      // the projection matrix
+uniform sampler2D heightMap; // the texture corresponding to our height map
+uniform mat4 model; // the model matrix
+uniform mat4 view; // the view matrix
+uniform mat4 projection; // the projection matrix
 
 // received from Tessellation Control Shader - all texture coordinates for the patch vertices
 in vec2 TextureCoord[];
@@ -48,7 +48,7 @@ void main()
     // compute patch surface normal
     vec4 uVec = p01 - p00;
     vec4 vVec = p10 - p00;
-    vec4 normal = normalize( vec4(cross(vVec.xyz, uVec.xyz), 0) );
+    vec4 normal = normalize(vec4(cross(vVec.xyz, uVec.xyz), 0));
 
     // bilinearly interpolate position coordinate across patch
     vec4 p0 = (p01 - p00) * u + p00;

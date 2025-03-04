@@ -18,7 +18,7 @@ CXXFLAGS = -Wall -ggdb -O3 $(INCLUDES)
 LDFLAGS = $(LIBRARIES) $(INCLUDES) -lglfw3 -lopengl32 -lglu32 -lgdi32
 
 TARGET = main.exe
-cpp_files = main.cc scenemanager.cc
+cpp_files = main.cc scenemanager.cc windowmanager.cc
 objects = $(cpp_files:.cpp=.o) glad.o
 headers =
 
@@ -27,6 +27,5 @@ all: $(TARGET)
 $(TARGET): $(objects) 
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
-# I use this for building on windows command prompt.
 clean:
-	del *.o 
+	rm *.o main.exe

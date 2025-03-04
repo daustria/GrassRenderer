@@ -14,40 +14,39 @@ out vec4 FragColor;
 
 void main()
 {
-	const float ambient = 1.0f;
-	const float diffuse = 0.6f; 
-	const float specular = 1.0f;
-	const float specular_hardness = 600.0f;
+    const float ambient = 1.0f;
+    const float diffuse = 0.6f;
+    const float specular = 1.0f;
+    const float specular_hardness = 600.0f;
 
-	vec4 colour = texture(diffuse_texture, tes_uv);
-	
+    vec4 colour = texture(diffuse_texture, tes_uv);
 
-	// vec4 colour = vec4(1.0f, 0.8f, 0.82f, 1.0f); // pink grass 	
-	// vec4 colour = vec4(1.0f, 0.8f, 0, 1.0f);
-	// colour *= tes_uv.y + 0.5f; //pseudo AO
+    // vec4 colour = vec4(1.0f, 0.8f, 0.82f, 1.0f); // pink grass
+    // vec4 colour = vec4(1.0f, 0.8f, 0, 1.0f);
+    // colour *= tes_uv.y + 0.5f; //pseudo AO
 
-	vec3 normal = tes_normal;
-	vec3 viewRay = cam_pos - tes_position.xyz;
+    vec3 normal = tes_normal;
+    vec3 viewRay = cam_pos - tes_position.xyz;
 
     float viewDist = length(viewRay);
 
     viewRay = viewRay / viewDist;
     viewDist = (viewDist - near_far.x) / (near_far.y - near_far.x);
-	vec3 lightRay = normalize(-light_dir);
+    vec3 lightRay = normalize(-light_dir);
 
-	vec3 halfVec = normalize((lightRay + viewRay) / 2.0f);
+    vec3 halfVec = normalize((lightRay + viewRay) / 2.0f);
 
-	float NdL = clamp(dot(normal, lightRay),0.0f,1.0f);
-	float NdH = clamp(dot(normal, halfVec),0.0f,1.0f);
+    float NdL = clamp(dot(normal, lightRay), 0.0f, 1.0f);
+    float NdH = clamp(dot(normal, halfVec), 0.0f, 1.0f);
 
-	vec3 aCol = max(ambient * colour.rgb,0.0f);
-	vec3 dCol = max(diffuse * NdL * colour.rgb,0.0f);
-	vec3 sCol = max(specular * pow(NdH, specular_hardness) * colour.rgb,0.0f) * tes_uv.y;
-	
-	aCol *= light_colour;
-	dCol *= light_colour;
-	sCol *= light_colour;
+    vec3 aCol = max(ambient * colour.rgb, 0.0f);
+    vec3 dCol = max(diffuse * NdL * colour.rgb, 0.0f);
+    vec3 sCol = max(specular * pow(NdH, specular_hardness) * colour.rgb, 0.0f) * tes_uv.y;
 
-	FragColor = vec4(aCol + dCol + sCol, 1.0f);
-	// FragColor = vec4(sCol, 1.0f);
+    aCol *= light_colour;
+    dCol *= light_colour;
+    sCol *= light_colour;
+
+    FragColor = vec4(aCol + dCol + sCol, 1.0f);
+    // FragColor = vec4(sCol, 1.0f);
 }

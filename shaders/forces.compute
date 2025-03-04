@@ -2,152 +2,147 @@
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
-layout(std430, binding = 0) buffer grassPos {
-	vec4 p[];
+layout(std430, binding = 0) buffer grassPos
+{
+    vec4 p[];
 };
 
-layout(std430, binding = 1) buffer grassV1 {
-	vec4 bv1[];
+layout(std430, binding = 1) buffer grassV1
+{
+    vec4 bv1[];
 };
 
-layout(std430, binding = 2) buffer grassV2 {
-	vec4 bv2[];
+layout(std430, binding = 2) buffer grassV2
+{
+    vec4 bv2[];
 };
 
-layout(std430, binding = 3) buffer grassUp {
-	vec4 bup[];
+layout(std430, binding = 3) buffer grassUp
+{
+    vec4 bup[];
 };
 
 uniform int amount_blades;
 uniform uvec2 workers;
 
-uniform float dt; 
+uniform float dt;
 uniform vec4 wind_data;
 
-// TODO: This is currently binded to 4. But what location should it bind to? Reconcile this with the
-// C++ code in scenemanager.cc
 layout(binding = 4, rgba32f) uniform image2D pressure_map;
 
 uniform mat4 model;
 uniform mat4 model_inverse;
 uniform mat3 model_inverse_transpose;
 
-// Heightmap stuff
 uniform sampler2D heightMap;
 uniform bool useHeightMap;
-uniform vec4 heightMapBounds; //xMin zMin xLength zLength
+uniform vec4 heightMapBounds; // xMin zMin xLength zLength
 
 void main()
-{	// Corresponds to the grass blade we are on.
-	uint id = (gl_GlobalInvocationID.x * workers.x) + (gl_GlobalInvocationID.y % workers.y);
-	// uint id = gl_GlobalInvocationID.x; 
+{
+    // Corresponds to the grass blade we are on.
+    uint id = (gl_GlobalInvocationID.x * workers.x) + (gl_GlobalInvocationID.y % workers.y);
 
-	if (id >= amount_blades) {
-		return;
-	}
-		
-	float dir = p[id].w;
-	float height = bv1[id].w;
-	float inv_height = 1.0f / height;
-	float width = bv2[id].w;
-	float bend_fac = bup[id].w;
-	float mdt = min(1.0f, dt);
+    if (id >= amount_blades) {
+        return;
+    }
 
-	vec3 ground_pos = (model * vec4(p[id].xyz, 1.0f)).xyz;
-	// For now assume no model matrix is applied. This may need to change later.
+    float dir = p[id].w;
+    float height = bv1[id].w;
+    float inv_height = 1.0f / height;
+    float width = bv2[id].w;
+    float bend_fac = bup[id].w;
+    float mdt = min(1.0f, dt);
 
-	vec3 blade_up = bup[id].xyz;
-	float sd = sin(dir);
-	float cd = cos(dir);
-	vec3 tmp = normalize(vec3(sd, sd + cd, cd)); // arbitrary vector for finding normal vector
-	vec3 blade_dir = normalize(cross(blade_up, tmp));
-	vec3 blade_front = normalize(cross(blade_up, blade_dir));
+    vec3 ground_pos = (model * vec4(p[id].xyz, 1.0f)).xyz;
+    // For now assume no model matrix is applied. This may need to change later.
 
-	blade_up = normalize(model_inverse_transpose * blade_up);
-	blade_dir = normalize(model_inverse_transpose * blade_dir);
-	blade_front = normalize(model_inverse_transpose * blade_front);		
+    vec3 blade_up = bup[id].xyz;
+    float sd = sin(dir);
+    float cd = cos(dir);
+    vec3 tmp = normalize(vec3(sd, sd + cd, cd)); // arbitrary vector for finding normal vector
+    vec3 blade_dir = normalize(cross(blade_up, tmp));
+    vec3 blade_front = normalize(cross(blade_up, blade_dir));
 
-	float map_height = 0.0f;
-	
-	vec3 idle_v2 = ground_pos + blade_up * height;
+    blade_up = normalize(model_inverse_transpose * blade_up);
+    blade_dir = normalize(model_inverse_transpose * blade_dir);
+    blade_front = normalize(model_inverse_transpose * blade_front);
 
-	// Read pressure map			
-	ivec2 pressureMapLookup = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-	vec4 old_pressure = imageLoad(pressure_map, pressureMapLookup);
-	
-	// Apply old pressure	
-	vec3 v2 = idle_v2 + old_pressure.xyz;
-	vec3 ground_pos_v2 = v2 - ground_pos;
-	
-	// Gravity calculation.
-	// a basic version with only environmental gravity, and gravity is only facing downwards.
-	const float h = height;
-	vec4 gravity_vec = vec4(0.0f, -1.0f, 0.0f, 0.0098f);
-	vec3 grav = normalize(gravity_vec.xyz) * gravity_vec.w; // Multiply by the mass of the grass blade?	
-	float sign = step(-0.01f, dot(normalize(grav), blade_front)) * 2.0f - 1.0f;
-	grav += sign * blade_front * h * gravity_vec.w * 0.2f;
-	grav = grav * h * mdt * bend_fac;
+    float map_height = 0.0f;
 
-	// Wind computation.		
-	float windage_height = abs(dot(ground_pos_v2, blade_up)) * inv_height; // f_r(h) in the paper
-	float windage_dir = 1.0f - abs(dot(normalize(wind_data.xyz), normalize(ground_pos_v2))); // f_d(h) in the paper	
-	float wind_alignment = windage_dir * windage_height; // Theta in the paper . 	
-	// Vary the wind strength 'randomly' based on the grass ID.
-	float w_time = wind_data.w + id % 30;	
+    vec3 idle_v2 = ground_pos + blade_up * height;
 
-	float wind_strength = id % 2 == 1 ? 1.2*sin(w_time) + 0.2*cos(w_time) : 0.2*sin(w_time) + 1.2*cos(w_time) ; 
-	vec3 w = wind_data.xyz * windage_dir * windage_height * wind_strength * mdt * 0.2f* (id % 3 + 1);
-	
-	// Not worrying about collisions with the grass for now.
-	float collision_force = 0.0f;
+    // Read pressure map
+    ivec2 pressureMapLookup = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    vec4 old_pressure = imageLoad(pressure_map, pressureMapLookup);
 
-	// Recovery force computation
-	vec3 stiffness = (idle_v2 - v2) * (1.0f - bend_fac * 0.25f) * max(1 - collision_force, 0.1f) * mdt;
+    // Apply old pressure
+    vec3 v2 = idle_v2 + old_pressure.xyz;
+    vec3 ground_pos_v2 = v2 - ground_pos;
 
-	//// Apply the forces 		
-	v2 += w + grav + stiffness;
+    // Gravity calculation.
+    // a basic version with only environmental gravity, and gravity is only facing downwards.
+    const float h = height;
+    vec4 gravity_vec = vec4(0.0f, -1.0f, 0.0f, 0.0098f);
+    vec3 grav = normalize(gravity_vec.xyz) * gravity_vec.w; // Multiply by the mass of the grass blade?
+    float sign = step(-0.01f, dot(normalize(grav), blade_front)) * 2.0f - 1.0f;
+    grav += sign * blade_front * h * gravity_vec.w * 0.2f;
+    grav = grav * h * mdt * bend_fac;
 
-	ground_pos_v2 = v2 - ground_pos;
+    // Wind computation.
+    // Formulas have a lot of arbitrary constants found from experimenting on my own machine.
+    float windage_height = abs(dot(ground_pos_v2, blade_up)) * inv_height; // f_r(h) in the paper
+    float windage_dir = 1.0f - abs(dot(normalize(wind_data.xyz), normalize(ground_pos_v2))); // f_d(h) in the paper
+    float wind_alignment = windage_dir * windage_height; // Theta in the paper .
+    // Vary the wind strength 'randomly' based on the grass ID.
+    float w_time = wind_data.w + id % 30;
 
-	// Ensure valid v2, check why this makes any sense later in the paper.
-	v2 += blade_up * -min(dot(blade_up, ground_pos_v2), 0.0f);
+    // Arbitrary formula with trig functions, for wind direction and strength.
+    float wind_strength = id % 2 == 1 ? 1.2 * sin(w_time) + 0.2 * cos(w_time) : 0.2 * sin(w_time) + 1.2 * cos(w_time);
+    vec3 w = wind_data.xyz * windage_dir * windage_height * wind_strength * mdt * 0.2f * (id % 3 + 1);
 
-	// Compute v1 now. Go over how this is computed.
-	
-	float l_proj = length(ground_pos_v2 - dot(ground_pos_v2, blade_up) * blade_up);
-	float v2ratio = l_proj * inv_height;
-	float fac = max(1.0f - v2ratio, max(v2ratio, 1.0f));
-	vec3 v1 = ground_pos + blade_up * height * fac;
-	// v1 = ground_pos + blade_up * height;
+    // Not worrying about collisions with the grass for now.
+    float collision_force = 0.0f;
 
-	// Correct the grass length, sometimes it gets longer for some reason
-	vec3 v01 = v1 - ground_pos;
-	vec3 v12 = v2 - v1;
-	float lv01 = length(v01);
-	float lv12 = length(v12);
+    // Recovery force computation
+    vec3 stiffness = (idle_v2 - v2) * (1.0f - bend_fac * 0.25f) * max(1 - collision_force, 0.1f) * mdt;
 
-	float L1 = lv01 + lv12;
-	float L0 = length(ground_pos_v2);
-	float L = (2.0f * L0 + L1) / 3.0f; 
+    // Apply the forces
+    v2 += w + grav + stiffness;
 
-	float ldiff = height / L;
-	v01 = v01 * ldiff;
-	v12 = v12 * ldiff;
-	v1 = ground_pos + v01;
-	v2 = v1 + v12;
+    ground_pos_v2 = v2 - ground_pos;
 
-	// This is what happens if we do nothing to v1 and v2.
-	//v2 = bv2[id].xyz;
-	//v1 = bv1[id].xyz;
+    // Ensure valid v2.
+    v2 += blade_up * -min(dot(blade_up, ground_pos_v2), 0.0f);
 
-	//Save v1 and v2 to buffers and update pressure map
-	vec3 pressure = v2 - idle_v2;	
+    // Compute v1
+    float l_proj = length(ground_pos_v2 - dot(ground_pos_v2, blade_up) * blade_up);
+    float v2ratio = l_proj * inv_height;
+    float fac = max(1.0f - v2ratio, max(v2ratio, 1.0f));
+    vec3 v1 = ground_pos + blade_up * height * fac;
+    // v1 = ground_pos + blade_up * height;
 
-	bv1[id].xyz = (model_inverse * vec4(v1 - blade_up * map_height, 1.0f)).xyz;
-	bv2[id].xyz = (model_inverse * vec4(v2 - blade_up * map_height, 1.0f)).xyz;
+    // Correct the grass length, sometimes it gets longer for some reason
+    vec3 v01 = v1 - ground_pos;
+    vec3 v12 = v2 - v1;
+    float lv01 = length(v01);
+    float lv12 = length(v12);
 
-	//bv1[id].xyz = v1.xyz;
-	//bv2[id].xyz = v2.xyz;
+    float L1 = lv01 + lv12;
+    float L0 = length(ground_pos_v2);
+    float L = (2.0f * L0 + L1) / 3.0f;
 
-	imageStore(pressure_map, pressureMapLookup, vec4(pressure, 1.0f));
+    float ldiff = height / L;
+    v01 = v01 * ldiff;
+    v12 = v12 * ldiff;
+    v1 = ground_pos + v01;
+    v2 = v1 + v12;
+
+    // Save v1 and v2 to buffers and update pressure map
+    vec3 pressure = v2 - idle_v2;
+
+    bv1[id].xyz = (model_inverse * vec4(v1 - blade_up * map_height, 1.0f)).xyz;
+    bv2[id].xyz = (model_inverse * vec4(v2 - blade_up * map_height, 1.0f)).xyz;
+
+    imageStore(pressure_map, pressureMapLookup, vec4(pressure, 1.0f));
 }
