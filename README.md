@@ -48,3 +48,6 @@ After `forces.compute` runs, we run the vertex and tessellation control shader o
 The tessellation evaluation shader `blade.tes` will run for each new vertex $(u,v)$ on this quad. We use $u,v$ as parameters, as well as the control points $v0, v1, v2$ for invoking
 [De Casteljau's algorithm](https://en.wikipedia.org/wiki/De_Casteljau%27s_algorithm) so that **each such point $(u,v)$ on the quad is mapped to a point on a degree 2 Bezier curve in three dimensional space**. The precise computations are in `blade.tes` or the research paper. We also output the normal and UV coordinates and pass all this to the fragment shader for lighting.
 
+### Installation
+
+To setup OpenGL on my device I followed learnopengl.com. One should be able to run this code with the provided Makefile after configuring glfw and glad, as well as changing some paths in the Makefile to suit your system. It of course runs on my device but I haven't tested it on another device yet.  
