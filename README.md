@@ -18,8 +18,8 @@ as well as how it is affected by physical forces. We can store all the required 
 For each blade of grass, we modify $v1, v2$ in an analytic way that simulates physical forces on the blade. This is done in the compute shader `forces.compute`. 
 Each force is represented as a three dimensional vector, and we sum them to obtain the total force.
 
-The force applied to the blade on the previous frame is saved as a 4 dimensional vector in a 2D image. We take this into account when computing the force for
-the new frame.
+The force applied to the blade on the previous frame is then saved as a 4-dimensional vector in a 2D image. We take this into account when 
+computing the force for the new frame.
  
 There are some other technical details for how we compute the grass, which can be found in the paper, but 
 long story short we add the total force to $v_2$ and then apply some post processing for correcting things like position and grass length.
@@ -27,18 +27,20 @@ I can probably make `forces.compute` a lot simpler considering that it does not 
 
 #### Gravity
 
-The gravity $g \in \mathbb{R}^3$ is simply computed as some scale factor of $g=|g_E|f$, where $g_E = (0, -9.8, 0)$ and $f$ is a vector perpendicular to the
-vector that runs along the width of the blade. 
+The gravity $g \in \mathbb{R}^3$ is simply computed as some scale factor of $g=|g_E|f$, where $g_E = (0, -9.8, 0)$ and $f$ is a 
+three-dimensional unit vector perpendicular to the vector that runs along the width of the blade. 
 
 #### Wind
 
 We compute a real value called the 'wind strength' as $1.2 \sin(t) + 0.2 \cos(t)$ or a variation of this formula. We vary the formula
-slightly and 'randomly' for each blade of grass by using its ID assigned to it in the compute shader.
+slightly and 'randomly' for each blade of grass by using its ID assigned to it in the compute shader. We then take this 'strength' value and
+multiply it against a three-dimensional unit vector representing the direction of the wind.
 
 #### Stiffness
 
 We compute the stiffness of a blade as $(I_{v_2} - {v_2})$, where $v_2$ is the 'tip' of the blade of grass after previous forces applied to it, and $I_{v_2}$ 
 is the initial position of $v_2$ if no forces were applied (that is, $v_2$ points straight up from $v_0$). Indeed our compute shader takes into account the previous iterations.
+
 ### Shading and Tessellation
 
 After `forces.compute` runs, we run the vertex and tessellation control shader on each blade. Until the tessellation evaluation shader, the vertices $v0,v1,v2$ are pretty much 'along for the ride' as not much is done to them besides applying the model matrix. In the tessellation control shader, we also specify how much to subdivide a unit quad $[0,1]^2$, based on how far the blade of grass is from the camera.
